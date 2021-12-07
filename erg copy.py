@@ -22,6 +22,11 @@ SEED_MONEY = 100
 WIN_RATE = 1.5
 LOSS_RATE = 0.6
 
+# colors
+plot_bgcolor = '#52575c'
+paper_bgcolor = '#3a3f44' #'#52575c'
+font_color = '#aaa'
+
 d = []
 for i in range(PLAYERS):
     x = SEED_MONEY
@@ -97,18 +102,18 @@ app.layout = dbc.Container([
 
         dbc.Col([
 
-            dcc.Graph(id='line-money', figure={})
+            dcc.Graph(id='line-money', figure={}, config={'displaylogo': False})
         ], width={'size':5}
         ),
     ], justify='center'),
     html.Br(),
     dbc.Row([                
         dbc.Col([
-            dcc.Graph(id='mean-money', figure={})
+            dcc.Graph(id='mean-money', figure={}, config={'displaylogo': False})
         ], width={'size':5} 
         ),                
         dbc.Col([
-            dcc.Graph(id='hist-money', figure={})
+            dcc.Graph(id='hist-money', figure={}, config={'displaylogo': False})
         ], width={'size':5}
         ),
     ], justify='center'),
@@ -174,6 +179,10 @@ def select_graph(data, radio):
 
     # print(dff)
     fig = px.line(dff, x='steps', y='money', color='players')
+    fig.update_layout(plot_bgcolor=plot_bgcolor, paper_bgcolor=paper_bgcolor, 
+    modebar_remove=["autoscale", "zoomin", "zoomout"],
+    font = dict (color = font_color), legend = dict (font = dict (color = font_color) 
+                ))
     return fig
 
 # Mean money in game
@@ -202,15 +211,65 @@ def update_graph(data, players, rate):
     mean_fig.add_trace(go.Scatter(x=gdf['steps'], y=gdf['money'],
                     mode='lines',
                     name='mean money'))
+    mean_fig.update_traces(fill='tozeroy',line={'color':'blue'})
     mean_fig.add_trace(go.Scatter(x=gdf['steps'], y=gdf['ideal'],
                     mode='lines',
                     name='expected in the ensemble'))
     mean_fig.add_trace(go.Scatter(x=gdf['steps'], y=gdf['expected in time'],
                     mode='lines',
                     name='expected in time'))
+    mean_fig.update_layout(plot_bgcolor=plot_bgcolor, paper_bgcolor=paper_bgcolor,
+                            font = dict (color = font_color),
+                            modebar_remove=["autoscale", "zoomin", "zoomout"],
+                            legend = dict ( 
+                                    yanchor = "top", 
+                                    y = 0.95, 
+                                    xanchor = "left", 
+                                    x = 0.05,
+                                    font = dict (color = font_color), 
+))
     
     return mean_fig
 
+@app.callback(
+    Output('hist-money', 'figure'),
+    # Input('data', 'data'),
+    Input('rate', 'value')
+)
+def select_graph(rate):
+    players = 10000
+    games = 6
+    d = []
+    rate = rate / 100
+    arifm_coef = 1 + (WIN_RATE + LOSS_RATE - 2) * rate / 2
+    geom_coef = math.sqrt((1 + (WIN_RATE-1) * rate) * (1 + (LOSS_RATE-1) * rate))
+    print(rate, arifm_coef, geom_coef)
+    for i in range(players):
+        x = SEED_MONEY
+        for j in range(games):
+            if np.random.randint(2):
+                x = x * (1-rate) + x * rate * WIN_RATE
+            else:
+                x = x * (1-rate) + x * rate * LOSS_RATE
+        d.append({"players": i, "money": x})
+    df = pd.DataFrame(d)
+    df = df.round({'money':2})
+    gdf = df.groupby('money').count()
+    gdf.reset_index(level=0, inplace=True)
+    mean_money = df['money'].sum() /df['players'].count() 
+    print(mean_money)
+    fig = px.line(gdf, x='money', y='players', line_shape='spline')
+    fig.add_shape( # Вертикаль средние деньги
+    type="line", line_color="salmon", line_width=3, opacity=1, line_dash="dot",
+    x0=mean_money, x1=mean_money, xref="x", y0=0, y1=gdf['players'].max(), yref="y")
+    fig.add_annotation( # add a text callout with arrow
+    text="Average payoff ", textangle=-90, x=mean_money, y=(gdf['players'].max() / 2))
+    fig.update_layout(plot_bgcolor=plot_bgcolor, paper_bgcolor=paper_bgcolor,
+                        modebar_remove=["autoscale", "zoomin", "zoomout"],
+                        font = dict (color = font_color))
+    fig.update_traces(fill='tozeroy',line={'color':'blue'})
+    return fig
+    # Добавить разделение по медиане по цветам
 
 
 
