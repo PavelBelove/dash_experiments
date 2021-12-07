@@ -51,6 +51,7 @@ df = pd.DataFrame(d)
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.SLATE],
             meta_tags=[{'name': 'viewport', 'content': 'width=device-width, initial-scale=1.0'}]
             )
+server = app.server
 
 fig = px.line(df, x='steps', y='money', color='players')
 
